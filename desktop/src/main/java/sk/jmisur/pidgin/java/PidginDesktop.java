@@ -2,8 +2,12 @@ package sk.jmisur.pidgin.java;
 
 import com.badlogic.gdx.backends.lwjgl.LwjglApplication;
 
+import org.apache.commons.configuration.ConfigurationException;
+import org.apache.commons.configuration.HierarchicalINIConfiguration;
+
 import sk.jmisur.pidgin.core.Log;
 import sk.jmisur.pidgin.core.Pidgin;
+import sk.jmisur.pidgin.core.PidginConfig;
 
 /**
  * Copyright 2011 David Kirchner dpk@dpk.net Licensed under the Apache License, Version 2.0 (the "License"); you may not
@@ -16,8 +20,10 @@ import sk.jmisur.pidgin.core.Pidgin;
 
 public class PidginDesktop {
 
-	public static void main(String[] argv) {
-		new LwjglApplication(new Pidgin(new SysOutLog()), "JumperTutorial", 1600, 900, false);
+	public static void main(String[] argv) throws ConfigurationException {
+		HierarchicalINIConfiguration config = new HierarchicalINIConfiguration("settings.ini");
+		new LwjglApplication(new Pidgin(new SysOutLog(), new IniConfig(config)), "JumperTutorial", config.getInt("main.width"), config.getInt("main.height"),
+				false);
 	}
 
 	public static class SysOutLog implements Log {
@@ -25,6 +31,13 @@ public class PidginDesktop {
 		@Override
 		public void log(String string) {
 			System.out.println(string);
+		}
+
+	}
+
+	public static class IniConfig implements PidginConfig {
+
+		public IniConfig(HierarchicalINIConfiguration config) {
 		}
 
 	}

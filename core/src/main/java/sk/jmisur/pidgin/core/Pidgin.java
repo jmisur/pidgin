@@ -15,6 +15,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
@@ -25,7 +26,6 @@ import com.badlogic.gdx.physics.box2d.CircleShape;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
-
 
 public class Pidgin implements ApplicationListener {
 
@@ -92,21 +92,37 @@ public class Pidgin implements ApplicationListener {
 
 	private final Log log;
 
-	public Pidgin(Log log) {
+	private final PidginConfig config;
+
+	private BitmapFont font;
+
+	private float jumpVelocity;
+
+	private float gravity;
+
+	private float pidginWidth;
+
+	private float pidginHeight;
+
+	private float pidginDensity;
+
+	public Pidgin(Log log, PidginConfig config) {
 		super();
 		this.log = log;
+		this.config = config;
 
 		// Defer until create() when Gdx is initialized.
 		screenWidth = -1;
 		screenHeight = -1;
 	}
 
-	public Pidgin(int width, int height, Log log) {
+	public Pidgin(int width, int height, Log log, PidginConfig config) {
 		super();
 
 		screenWidth = width;
 		screenHeight = height;
 		this.log = log;
+		this.config = config;
 	}
 
 	@Override
@@ -158,7 +174,9 @@ public class Pidgin implements ApplicationListener {
 		 * Boxes are defined by their "half width" and "half height", hence the 2 multiplier.
 		 */
 		PolygonShape jumperShape = new PolygonShape();
-		jumperShape.setAsBox(jumperSprite.getWidth() / (2 * PIXELS_PER_METER), jumperSprite.getHeight() / (2 * PIXELS_PER_METER));
+		pidginWidth = jumperSprite.getWidth() / (2 * PIXELS_PER_METER);
+		pidginHeight = jumperSprite.getHeight() / (2 * PIXELS_PER_METER);
+		jumperShape.setAsBox(pidginWidth, pidginHeight);
 
 		/**
 		 * The character should not ever spin around on impact.
@@ -172,7 +190,8 @@ public class Pidgin implements ApplicationListener {
 		 */
 		FixtureDef jumperFixtureDef = new FixtureDef();
 		jumperFixtureDef.shape = jumperShape;
-		jumperFixtureDef.density = 1.0f;
+		pidginDensity = 1f;
+		jumperFixtureDef.density = pidginDensity;
 		jumperFixtureDef.friction = 0f;
 		jumperFixtureDef.restitution = 0f;
 
@@ -185,7 +204,12 @@ public class Pidgin implements ApplicationListener {
 
 		debugRenderer = new Box2DDebugRenderer();
 
-		lastRender = System.nanoTime();
+		lastRender = System.currentTimeMillis();
+
+		font = new BitmapFont();
+
+		jumpVelocity = 0.8f;
+		gravity = world.getGravity().y;
 	}
 
 	private void createBall() {
@@ -213,7 +237,7 @@ public class Pidgin implements ApplicationListener {
 
 	@Override
 	public void render() {
-		long now = System.nanoTime();
+		long now = System.currentTimeMillis();
 
 		boolean doJump = false;
 		boolean doCrouch = false;
@@ -222,28 +246,10 @@ public class Pidgin implements ApplicationListener {
 
 		if (Gdx.input.isKeyPressed(Input.Keys.DPAD_RIGHT)) {
 			moveRight = true;
-		} //else {
-			//			for (int i = 0; i < 2; i++) {
-			//				if (Gdx.input.isTouched(i) && Gdx.input.getX() > Gdx.graphics.getWidth() * 0.80f) {
-			//					moveRight = true;
-			//				}
-			//			}
-			//		}
-
+		}
 		if (Gdx.input.isKeyPressed(Input.Keys.DPAD_LEFT)) {
 			moveLeft = true;
-		} //else {
-			//			for (int i = 0; i < 2; i++) {
-			//				if (Gdx.input.isTouched(i) && Gdx.input.getX() < Gdx.graphics.getWidth() * 0.20f) {
-			//					moveLeft = true;
-			//				}
-			//			}
-			//		}
-
-		for (int i = 0; i < 10; i++) {
-			if (Gdx.input.isTouched(i)) log.log("TOUCHED: " + i + " at " + Gdx.input.getX(i));
 		}
-
 		if (Gdx.input.isKeyPressed(Input.Keys.DPAD_UP)) {
 			doJump = true;
 		} else {
@@ -253,7 +259,6 @@ public class Pidgin implements ApplicationListener {
 				}
 			}
 		}
-
 		if (Gdx.input.isKeyPressed(Input.Keys.DPAD_DOWN)) {
 			doCrouch = true;
 		} else {
@@ -263,11 +268,9 @@ public class Pidgin implements ApplicationListener {
 				}
 			}
 		}
-
-		if (Gdx.input.isKeyPressed(Input.Keys.R)) {
-			reset();
-		}
-
+		//		if (Gdx.input.isKeyPressed(Input.Keys.R)) {
+		//			reset();
+		//		}
 		if (Gdx.input.isKeyPressed(Input.Keys.A)) {
 			backoff(1f, 0f);
 		}
@@ -277,12 +280,41 @@ public class Pidgin implements ApplicationListener {
 		if (Gdx.input.isKeyPressed(Input.Keys.M)) {
 			constantMove = !constantMove;
 		}
-		//		/**
-		//		 * Act on that requested motion. This code changes the jumper's direction. It's handled separately from the
-		//		 * jumping so that the player can jump and move simultaneously. The horizontal figure was arrived at
-		//		 * experimentally -- try other values to experience different speeds. The impulses are applied to the center of
-		//		 * the jumper.
-		//		 */
+		if (Gdx.input.isKeyPressed(Input.Keys.E)) {
+			gravity = gravity - 0.1f;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.S)) {
+			gravity = gravity + 0.1f;
+			if (gravity > 0) gravity = 0;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.D)) {
+			jumpVelocity = jumpVelocity - 0.01f;
+			if (jumpVelocity < 0) jumpVelocity = 0;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.R)) {
+			jumpVelocity = jumpVelocity + 0.01f;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.F)) {
+			pidginWidth = pidginWidth - 0.01f;
+			if (pidginWidth < 0) pidginWidth = 0;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.T)) {
+			pidginWidth = pidginWidth + 0.01f;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.G)) {
+			pidginHeight = pidginHeight - 0.01f;
+			if (pidginHeight < 0) pidginHeight = 0;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.Y)) {
+			pidginHeight = pidginHeight + 0.01f;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.H)) {
+			pidginDensity = pidginDensity - 0.01f;
+			if (pidginDensity < 0) pidginDensity = 0;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.U)) {
+			pidginDensity = pidginDensity + 0.01f;
+		}
 		if (moveRight) {
 			jumper.applyLinearImpulse(new Vector2(0.05f, 0.0f), jumper.getWorldCenter());
 			if (jumperFacingRight == false) {
@@ -298,12 +330,11 @@ public class Pidgin implements ApplicationListener {
 		}
 
 		if (doCrouch) {
-			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(jumperSprite.getWidth() / (2 * PIXELS_PER_METER), jumperSprite.getHeight()
-					/ (2 * PIXELS_PER_METER));
+			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth, pidginHeight / 2);
 			jumperSprite = crouchSprite;
 		} else {
-			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(jumperSprite.getWidth() / (2 * PIXELS_PER_METER), jumperSprite.getHeight()
-					/ (2 * PIXELS_PER_METER));
+			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth, pidginHeight);
+			jumper.resetMassData();
 			jumperSprite = normalSprite;
 		}
 
@@ -314,7 +345,7 @@ public class Pidgin implements ApplicationListener {
 		 * As before, impulse is applied to the center of the jumper.
 		 */
 		if (doJump && Math.abs(jumper.getLinearVelocity().y) < 1e-4) {
-			jumper.applyLinearImpulse(new Vector2(0.0f, 0.8f), jumper.getWorldCenter());
+			jumper.applyLinearImpulse(new Vector2(0.0f, jumpVelocity), jumper.getWorldCenter());
 		}
 
 		if (constantMove) {
@@ -374,6 +405,8 @@ public class Pidgin implements ApplicationListener {
 				- jumperSprite.getHeight() / 2);
 		jumperSprite.draw(spriteBatch);
 
+		print(gravity, jumpVelocity);
+
 		/**
 		 * "Flush" the sprites to screen.
 		 */
@@ -384,7 +417,7 @@ public class Pidgin implements ApplicationListener {
 		 */
 		debugRenderer.render(world, tiledMapHelper.getCamera().combined.scale(Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER));
 
-		now = System.nanoTime();
+		now = System.currentTimeMillis();
 		if (now - lastRender < 30000000) { // 30 ms, ~33FPS
 			try {
 				Thread.sleep(30 - (now - lastRender) / 1000000);
@@ -392,6 +425,28 @@ public class Pidgin implements ApplicationListener {
 		}
 
 		lastRender = now;
+	}
+
+	private void print(float gravity, float jumpVelocity) {
+		font.draw(spriteBatch, "gravitacia: " + -world.getGravity().y, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
+				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2);
+		if (world.getGravity().y != gravity) world.setGravity(new Vector2(0, gravity));
+		font.draw(spriteBatch, "jump: " + jumpVelocity, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
+				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 20);
+
+		Vector2 rozmery = new Vector2();
+		((PolygonShape) jumper.getFixtureList().get(0).getShape()).getVertex(2, rozmery);
+
+		font.draw(spriteBatch, "vyska vtaka: " + rozmery.y, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
+				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 40);
+		font.draw(spriteBatch, "sirka vtaka: " + rozmery.x, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
+				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 60);
+
+		float density = jumper.getFixtureList().get(0).getDensity();
+		font.draw(spriteBatch, "objem vtaka: " + density, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
+				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 80);
+		if (density != pidginDensity) jumper.getFixtureList().get(0).setDensity(pidginDensity);
+
 	}
 
 	private void reset() {

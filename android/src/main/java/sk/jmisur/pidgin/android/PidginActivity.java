@@ -7,6 +7,7 @@ import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 
 import sk.jmisur.pidgin.core.Log;
 import sk.jmisur.pidgin.core.Pidgin;
+import sk.jmisur.pidgin.core.PidginConfig;
 
 public class PidginActivity extends AndroidApplication {
 
@@ -15,7 +16,7 @@ public class PidginActivity extends AndroidApplication {
 		super.onCreate(savedInstanceState);
 		AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
 		config.useGL20 = true;
-		initialize(new Pidgin(new AndroidLog()), config);
+		initialize(new Pidgin(new AndroidLog(), new AndroidConfig()), config);
 	}
 
 	public static class AndroidLog implements Log {
@@ -24,6 +25,7 @@ public class PidginActivity extends AndroidApplication {
 		public void log(String string) {
 			android.util.Log.i("Pidgin", string);
 		}
-
 	}
+
+	public static class AndroidConfig implements PidginConfig {}
 }
