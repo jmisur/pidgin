@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" width="30" height="10" tilewidth="290" tileheight="290">
+ <tileset firstgid="1" name="ulica" tilewidth="290" tileheight="290" spacing="2">
+  <image source="../images/tiles/ulica.png" trans="ffffff" width="1024" height="4096"/>
+ </tileset>
+ <layer name="Tile Layer 1" width="30" height="10">
+  <data encoding="base64" compression="gzip">
+   H4sIAAAAAAAAC+3O1wqAMAwF0Na9cI+6/v83vQ8phGLrg6AgBg5pLi2pEH99uVZoIHl4bw8zhCybYICM5hJ28CGHivL6xl7F2DJl5Lo26jF49LcARmghutgrT/byTBo5v8e7+W9XFUxHUjbbznrm3XzvsrzkAImGjziwBAAA
+  </data>
+ </layer>
+ <objectgroup name="Object Layer 1" width="30" height="10">
+  <object x="544" y="2240" width="784" height="352"/>
+  <object x="1088" y="2432"/>
+  <object x="1616" y="2184" width="464" height="328">
+   <ellipse/>
+  </object>
+ </objectgroup>
+</map>

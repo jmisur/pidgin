@@ -23,26 +23,63 @@
 		</resources>
 		<plugins>
 			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-				<version>2.4</version>
-				<configuration>
-					<descriptorRefs>
-						<descriptorRef>jar-with-dependencies</descriptorRef>
-					</descriptorRefs>
-					<archive>
-						<manifest>
-							<mainClass>${mainClass}</mainClass>
-						</manifest>
-					</archive>
-				</configuration>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-shade-plugin</artifactId>
+				<version>1.4</version>
 				<executions>
 					<execution>
-						<id>make-assembly</id>
 						<phase>package</phase>
 						<goals>
-							<goal>single</goal>
+							<goal>shade</goal>
 						</goals>
 					</execution>
+				</executions>
+				<configuration>
+					<shadedArtifactAttached>true</shadedArtifactAttached>
+					<shadedClassifierName>shaded</shadedClassifierName>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.bluestemsoftware.open.maven.plugin</groupId>
+				<artifactId>launch4j-plugin</artifactId>
+				<version>1.5.0.0</version>
+				<executions>
+
+					<!-- GUI exe -->
+					<execution>
+						<id>l4j-gui</id>
+						<phase>package</phase>
+						<goals>
+							<goal>launch4j</goal>
+						</goals>
+						<configuration>
+							<headerType>gui</headerType>
+							<outfile>target/pidgin.exe</outfile>
+							<jar>target/${artifactId}-${version}-shaded.jar</jar>
+							<errTitle>App Err</errTitle>
+							<classPath>
+								<mainClass>${mainClass}</mainClass>
+							</classPath>
+							<icon>assets/data/images/icons/pidgin.ico</icon>
+							<jre>
+								<minVersion>1.5.0</minVersion>
+								<maxVersion>1.6.0</maxVersion>
+								<initialHeapSize>128</initialHeapSize>
+								<maxHeapSize>128</maxHeapSize>
+							</jre>
+							<versionInfo>
+								<fileVersion>1.0.0.0</fileVersion>
+								<txtFileVersion>1.0.0.0</txtFileVersion>
+								<fileDescription>Desc</fileDescription>
+								<copyright>C</copyright>
+								<productVersion>1.0.0.0</productVersion>
+								<txtProductVersion>1.0.0.0</txtProductVersion>
+								<productName>Product</productName>
+								<internalName>Product</internalName>
+								<originalFilename>Pidgin.exe</originalFilename>
+							</versionInfo>
+						</configuration>
+					</execution>					
 				</executions>
 			</plugin>
 		</plugins>

@@ -17,13 +17,10 @@ import java.util.HashMap;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.g2d.tiled.TileAtlas;
-import com.badlogic.gdx.graphics.g2d.tiled.TileMapRenderer;
-import com.badlogic.gdx.graphics.g2d.tiled.TiledLoader;
-import com.badlogic.gdx.graphics.g2d.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TmxMapLoader;
+import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.math.Vector3;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.EdgeShape;
@@ -31,19 +28,13 @@ import com.badlogic.gdx.physics.box2d.World;
 
 public class TiledMapHelper {
 
-	private static final int[] layersList = {0};
-
 	/**
 	 * Renders the part of the map that should be visible to the user.
+	 * 
+	 * @return
 	 */
-	public void render() {
-		tileMapRenderer.getProjectionMatrix().set(camera.combined);
-
-		Vector3 tmp = new Vector3();
-		tmp.set(0, 0, 0);
-		camera.unproject(tmp);
-
-		tileMapRenderer.render((int) tmp.x, (int) tmp.y, Gdx.graphics.getWidth(), Gdx.graphics.getHeight(), layersList);
+	public OrthogonalTiledMapRenderer getRenderer() {
+		return tileMapRenderer;
 	}
 
 	/**
@@ -52,7 +43,15 @@ public class TiledMapHelper {
 	 * @return y
 	 */
 	public int getHeight() {
-		return map.height * map.tileHeight;
+		return map.getProperties().get("height", Integer.class) * map.getProperties().get("tileheight", Integer.class);
+	}
+
+	public int getHeightInTiles() {
+		return map.getProperties().get("height", Integer.class);
+	}
+
+	public int getTileHeight() {
+		return map.getProperties().get("tileheight", Integer.class);
 	}
 
 	/**
@@ -61,7 +60,15 @@ public class TiledMapHelper {
 	 * @return x
 	 */
 	public int getWidth() {
-		return map.width * map.tileWidth;
+		return map.getProperties().get("width", Integer.class) * map.getProperties().get("tilewidth", Integer.class);
+	}
+
+	public int getWidthInTiles() {
+		return map.getProperties().get("width", Integer.class);
+	}
+
+	public int getTileWidth() {
+		return map.getProperties().get("tilewidth", Integer.class);
 	}
 
 	/**
@@ -77,7 +84,6 @@ public class TiledMapHelper {
 	 * Calls dispose on all disposable resources held by this object.
 	 */
 	public void dispose() {
-		tileAtlas.dispose();
 		tileMapRenderer.dispose();
 	}
 
@@ -95,15 +101,13 @@ public class TiledMapHelper {
 	 * 
 	 * @param tmxFile
 	 */
-	public void loadMap(String tmxFile) {
+	public void loadMap(String tmxFile, float scale) {
 		if (packFileDirectory == null) {
 			throw new IllegalStateException("loadMap() called out of sequence");
 		}
 
-		map = TiledLoader.createMap(Gdx.files.internal(tmxFile));
-		tileAtlas = new TileAtlas(map, packFileDirectory);
-
-		tileMapRenderer = new TileMapRenderer(map, tileAtlas, 16, 16);
+		map = new TmxMapLoader().load(tmxFile);
+		tileMapRenderer = new OrthogonalTiledMapRenderer(map, scale);
 	}
 
 	/**
@@ -156,18 +160,21 @@ public class TiledMapHelper {
 
 		ArrayList<LineSegment> collisionLineSegments = new ArrayList<LineSegment>();
 
-		for (int y = 0; y < getMap().height; y++) {
-			for (int x = 0; x < getMap().width; x++) {
-				int tileType = getMap().layers.get(0).tiles[(getMap().height - 1) - y][x];
-
-				for (int n = 0; n < tileCollisionJoints.get(Integer.valueOf(tileType)).size(); n++) {
-					LineSegment lineSeg = tileCollisionJoints.get(Integer.valueOf(tileType)).get(n);
-
-					addOrExtendCollisionLineSegment(x * getMap().tileWidth + lineSeg.start().x, y * getMap().tileHeight - lineSeg.start().y + 32, x
-							* getMap().tileWidth + lineSeg.end().x, y * getMap().tileHeight - lineSeg.end().y + 32, collisionLineSegments);
-				}
-			}
-		}
+		//		for (int y = 0; y < getHeightInTiles(); y++) {
+		//			for (int x = 0; x < getWidthInTiles(); x++) {
+		//				Cell cell = ((TiledMapTileLayer) getMap().getLayers().get(0)).getCell((getHeightInTiles() - 1) - y, x);
+		//				if (cell != null) {
+		//					int tileType = cell.getTile().getId();
+		//
+		//					for (int n = 0; n < tileCollisionJoints.get(Integer.valueOf(tileType)).size(); n++) {
+		//						LineSegment lineSeg = tileCollisionJoints.get(Integer.valueOf(tileType)).get(n);
+		//
+		//						addOrExtendCollisionLineSegment(x * getTileWidth() + lineSeg.start().x, y * getTileHeight() - lineSeg.start().y + 32, x
+		//								* getTileWidth() + lineSeg.end().x, y * getTileHeight() - lineSeg.end().y + 32, collisionLineSegments);
+		//					}
+		//				}
+		//			}
+		//		}
 
 		BodyDef groundBodyDef = new BodyDef();
 		groundBodyDef.type = BodyDef.BodyType.StaticBody;
@@ -229,30 +236,6 @@ public class TiledMapHelper {
 		if (!didextend) {
 			collisionLineSegments.add(line);
 		}
-	}
-
-	/**
-	 * Prepares the helper's camera object for use.
-	 * 
-	 * @param screenWidth
-	 * @param screenHeight
-	 */
-	public void prepareCamera(int screenWidth, int screenHeight) {
-		camera = new OrthographicCamera(screenWidth, screenHeight);
-
-		camera.position.set(0, 0, 0);
-	}
-
-	/**
-	 * Returns the camera object created for viewing the loaded map.
-	 * 
-	 * @return OrthographicCamera
-	 */
-	public OrthographicCamera getCamera() {
-		if (camera == null) {
-			throw new IllegalStateException("getCamera() called out of sequence");
-		}
-		return camera;
 	}
 
 	/**
@@ -348,10 +331,7 @@ public class TiledMapHelper {
 
 	private FileHandle packFileDirectory;
 
-	private OrthographicCamera camera;
-
-	private TileAtlas tileAtlas;
-	private TileMapRenderer tileMapRenderer;
+	private OrthogonalTiledMapRenderer tileMapRenderer;
 
 	private TiledMap map;
 }

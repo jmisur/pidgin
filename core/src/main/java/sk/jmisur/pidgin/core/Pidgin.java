@@ -13,6 +13,7 @@ import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.GL10;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
@@ -22,7 +23,6 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.physics.box2d.BodyDef;
 import com.badlogic.gdx.physics.box2d.Box2DDebugRenderer;
-import com.badlogic.gdx.physics.box2d.CircleShape;
 import com.badlogic.gdx.physics.box2d.FixtureDef;
 import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
@@ -100,11 +100,21 @@ public class Pidgin implements ApplicationListener {
 
 	private float gravity;
 
-	private float pidginWidth;
+	private int pidginWidth;
 
-	private float pidginHeight;
+	private int pidginHeight;
 
 	private float pidginDensity;
+
+	private boolean doJump;
+
+	private boolean doCrouch;
+
+	private boolean moveRight;
+
+	private boolean moveLeft;
+
+	private float moveVelocity;
 
 	public Pidgin(Log log, PidginConfig config) {
 		super();
@@ -125,72 +135,54 @@ public class Pidgin implements ApplicationListener {
 		this.config = config;
 	}
 
+	private OrthographicCamera camera;
+
 	@Override
 	public void create() {
-		/**
-		 * If the viewport's size is not yet known, determine it here.
-		 */
-		if (screenWidth == -1) {
-			screenWidth = Gdx.graphics.getWidth();
-			screenHeight = Gdx.graphics.getHeight();
-		}
+		screenWidth = Gdx.graphics.getWidth();
+		screenHeight = Gdx.graphics.getHeight();
+
+		camera = new OrthographicCamera(screenWidth, screenHeight);
+		camera.position.set(0, 0, 0);
+		//		camera.zoom = 0.1f;
 
 		tiledMapHelper = new TiledMapHelper();
+		tiledMapHelper.setPackerDirectory("data/maps/");
+		tiledMapHelper.loadMap("data/maps/" + config.getMap() + ".tmx", 1f);
+		tiledMapHelper.getRenderer().setView(camera);
 
-		tiledMapHelper.setPackerDirectory("data/images");
-
-		tiledMapHelper.loadMap("data/world/level.tmx");
-
-		tiledMapHelper.prepareCamera(screenWidth, screenHeight);
-
-		/**
-		 * Load up the overall texture and chop it in to pieces. In this case, piece.
-		 */
-		overallTexture = new Texture(Gdx.files.internal("data/pidgin.png"));
+		overallTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin.png"));
 		overallTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 
-		crouchTexture = new Texture(Gdx.files.internal("data/pidgin-crouch.png"));
+		crouchTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin-crouch.png"));
 		crouchTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 
-		jumperSprite = normalSprite = new Sprite(overallTexture, 0, 0, 21, 37);
-		crouchSprite = new Sprite(crouchTexture, 0, 0, 21, 18);
+		pidginWidth = config.getPidginWidth();
+		pidginHeight = config.getPidginHeight();
+
+		jumperSprite = normalSprite = new Sprite(overallTexture, 0, 0, pidginWidth, pidginHeight);
+		crouchSprite = new Sprite(crouchTexture, 0, 0, pidginWidth, pidginHeight / 2);
 
 		spriteBatch = new SpriteBatch();
 
-		/**
-		 * You can set the world's gravity in its constructor. Here, the gravity is negative in the y direction (as in,
-		 * pulling things down).
-		 */
-		world = new World(new Vector2(0.0f, -10.0f), true);
+		gravity = -config.getGravity();
+		world = new World(new Vector2(0.0f, gravity), true);
 
 		BodyDef jumperBodyDef = new BodyDef();
 		jumperBodyDef.type = BodyDef.BodyType.DynamicBody;
-		jumperBodyDef.position.set(1.0f, 5.0f);
+		jumperBodyDef.position.set(1.0f, 30.0f);
 		//						jumperBodyDef.position.set((tiledMapHelper.getWidth() - 200) / PIXELS_PER_METER - 1f, (tiledMapHelper.getHeight() - 64) / PIXELS_PER_METER);
 
 		jumper = world.createBody(jumperBodyDef);
 
-		/**
-		 * Boxes are defined by their "half width" and "half height", hence the 2 multiplier.
-		 */
 		PolygonShape jumperShape = new PolygonShape();
-		pidginWidth = jumperSprite.getWidth() / (2 * PIXELS_PER_METER);
-		pidginHeight = jumperSprite.getHeight() / (2 * PIXELS_PER_METER);
-		jumperShape.setAsBox(pidginWidth, pidginHeight);
+		jumperShape.setAsBox(pidginWidth / 2 / PIXELS_PER_METER, pidginHeight / 2 / PIXELS_PER_METER);
 
-		/**
-		 * The character should not ever spin around on impact.
-		 */
 		jumper.setFixedRotation(true);
-		//		jumper.setBullet(true);
 
-		/**
-		 * The density and friction of the jumper were found experimentally. Play with the numbers and watch how the
-		 * character moves faster or slower.
-		 */
 		FixtureDef jumperFixtureDef = new FixtureDef();
 		jumperFixtureDef.shape = jumperShape;
-		pidginDensity = 1f;
+		pidginDensity = config.getMass();
 		jumperFixtureDef.density = pidginDensity;
 		jumperFixtureDef.friction = 0f;
 		jumperFixtureDef.restitution = 0f;
@@ -198,9 +190,9 @@ public class Pidgin implements ApplicationListener {
 		jumper.createFixture(jumperFixtureDef);
 		jumperShape.dispose();
 
-		createBall();
+		//		createBall();
 
-		tiledMapHelper.loadCollisions("data/images/level.collision", world, PIXELS_PER_METER);
+		tiledMapHelper.loadCollisions("data/images/tiles/" + config.getMap() + ".collision", world, PIXELS_PER_METER);
 
 		debugRenderer = new Box2DDebugRenderer();
 
@@ -208,28 +200,28 @@ public class Pidgin implements ApplicationListener {
 
 		font = new BitmapFont();
 
-		jumpVelocity = 0.8f;
-		gravity = world.getGravity().y;
+		jumpVelocity = config.getJumpVelocity();
+		moveVelocity = config.getSpeed();
 	}
 
-	private void createBall() {
-		BodyDef ballBodyDef = new BodyDef();
-		ballBodyDef.type = BodyDef.BodyType.DynamicBody;
-		ballBodyDef.position.set((tiledMapHelper.getWidth() - 320) / PIXELS_PER_METER, (tiledMapHelper.getHeight() - 64) / PIXELS_PER_METER);
-		Body ball = world.createBody(ballBodyDef);
-
-		CircleShape ballShape = new CircleShape();
-		ballShape.setRadius(0.2f);
-
-		FixtureDef ballFixtureDef = new FixtureDef();
-		ballFixtureDef.shape = ballShape;
-		ballFixtureDef.density = 0.1f;
-		ballFixtureDef.friction = 0.1f;
-		ballFixtureDef.restitution = 0.8f;
-
-		ball.createFixture(ballFixtureDef);
-		ballShape.dispose();
-	}
+	//	private void createBall() {
+	//		BodyDef ballBodyDef = new BodyDef();
+	//		ballBodyDef.type = BodyDef.BodyType.DynamicBody;
+	//		ballBodyDef.position.set((tiledMapHelper.getWidth() - 320) / PIXELS_PER_METER, (tiledMapHelper.getHeight() - 64) / PIXELS_PER_METER);
+	//		Body ball = world.createBody(ballBodyDef);
+	//
+	//		CircleShape ballShape = new CircleShape();
+	//		ballShape.setRadius(0.2f);
+	//
+	//		FixtureDef ballFixtureDef = new FixtureDef();
+	//		ballFixtureDef.shape = ballShape;
+	//		ballFixtureDef.density = 0.1f;
+	//		ballFixtureDef.friction = 0.1f;
+	//		ballFixtureDef.restitution = 0.8f;
+	//
+	//		ball.createFixture(ballFixtureDef);
+	//		ballShape.dispose();
+	//	}
 
 	@Override
 	public void resume() {
@@ -237,13 +229,43 @@ public class Pidgin implements ApplicationListener {
 
 	@Override
 	public void render() {
-		long now = System.currentTimeMillis();
+		doJump = false;
+		doCrouch = false;
+		moveRight = false;
+		moveLeft = false;
 
-		boolean doJump = false;
-		boolean doCrouch = false;
-		boolean moveRight = false;
-		boolean moveLeft = false;
+		getInput();
+		doMoves();
 
+		world.step(Gdx.app.getGraphics().getDeltaTime(), 3, 3);
+
+		Gdx.gl.glClearColor(0, 0.5f, 0.9f, 0);
+		Gdx.gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
+
+		controlCamera();
+
+		//		if (jumper.getPosition().x * PIXELS_PER_METER > tiledMapHelper.getWidth() - 30) reset();
+
+		camera.update();
+		tiledMapHelper.getRenderer().setView(camera);
+		tiledMapHelper.getRenderer().render();
+
+		spriteBatch.setProjectionMatrix(camera.combined);
+		spriteBatch.begin();
+
+		jumperSprite.setPosition(PIXELS_PER_METER * jumper.getPosition().x - jumperSprite.getWidth() / 2, PIXELS_PER_METER * jumper.getPosition().y
+				- jumperSprite.getHeight() / 2);
+		jumperSprite.draw(spriteBatch);
+
+		print(gravity, jumpVelocity);
+
+		spriteBatch.end();
+		debugRenderer.render(world, camera.combined.scale(Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER));
+
+		ensureFps();
+	}
+
+	private void getInput() {
 		if (Gdx.input.isKeyPressed(Input.Keys.DPAD_RIGHT)) {
 			moveRight = true;
 		}
@@ -268,9 +290,9 @@ public class Pidgin implements ApplicationListener {
 				}
 			}
 		}
-		//		if (Gdx.input.isKeyPressed(Input.Keys.R)) {
-		//			reset();
-		//		}
+		if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
+			reset();
+		}
 		if (Gdx.input.isKeyPressed(Input.Keys.A)) {
 			backoff(1f, 0f);
 		}
@@ -279,6 +301,7 @@ public class Pidgin implements ApplicationListener {
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.M)) {
 			constantMove = !constantMove;
+			jumper.setLinearVelocity(0f, 0f);
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.E)) {
 			gravity = gravity - 0.1f;
@@ -295,34 +318,45 @@ public class Pidgin implements ApplicationListener {
 			jumpVelocity = jumpVelocity + 0.01f;
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.F)) {
-			pidginWidth = pidginWidth - 0.01f;
+			pidginWidth = pidginWidth - 1;
 			if (pidginWidth < 0) pidginWidth = 0;
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.T)) {
-			pidginWidth = pidginWidth + 0.01f;
+			pidginWidth = pidginWidth + 1;
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.G)) {
-			pidginHeight = pidginHeight - 0.01f;
+			pidginHeight = pidginHeight - 1;
 			if (pidginHeight < 0) pidginHeight = 0;
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.Y)) {
-			pidginHeight = pidginHeight + 0.01f;
+			pidginHeight = pidginHeight + 1;
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.H)) {
-			pidginDensity = pidginDensity - 0.01f;
+			pidginDensity = pidginDensity - 0.001f;
 			if (pidginDensity < 0) pidginDensity = 0;
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.U)) {
-			pidginDensity = pidginDensity + 0.01f;
+			pidginDensity = pidginDensity + 0.001f;
 		}
-		if (moveRight) {
-			jumper.applyLinearImpulse(new Vector2(0.05f, 0.0f), jumper.getWorldCenter());
+		if (Gdx.input.isKeyPressed(Input.Keys.J)) {
+			moveVelocity = moveVelocity - 0.01f;
+			if (moveVelocity < 0) moveVelocity = 0;
+		}
+		if (Gdx.input.isKeyPressed(Input.Keys.I)) {
+			moveVelocity = moveVelocity + 0.01f;
+		}
+
+	}
+
+	private void doMoves() {
+		if (!constantMove && moveRight) {
+			jumper.applyLinearImpulse(new Vector2(0.05f, 0.0f), jumper.getWorldCenter(), true);
 			if (jumperFacingRight == false) {
 				jumperSprite.flip(true, false);
 			}
 			jumperFacingRight = true;
-		} else if (moveLeft) {
-			jumper.applyLinearImpulse(new Vector2(-0.05f, 0.0f), jumper.getWorldCenter());
+		} else if (!constantMove && moveLeft) {
+			jumper.applyLinearImpulse(new Vector2(-0.05f, 0.0f), jumper.getWorldCenter(), true);
 			if (jumperFacingRight == true) {
 				jumperSprite.flip(true, false);
 			}
@@ -330,94 +364,26 @@ public class Pidgin implements ApplicationListener {
 		}
 
 		if (doCrouch) {
-			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth, pidginHeight / 2);
+			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth / 2 / PIXELS_PER_METER, pidginHeight / 2 / 2 / PIXELS_PER_METER);
 			jumperSprite = crouchSprite;
 		} else {
-			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth, pidginHeight);
-			jumper.resetMassData();
+			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth / 2 / PIXELS_PER_METER, pidginHeight / 2 / PIXELS_PER_METER);
 			jumperSprite = normalSprite;
 		}
+		jumper.resetMassData();
 
-		/**
-		 * The jumper dude can only jump while on the ground. There are better ways to detect ground contact, but for
-		 * our purposes it is sufficient to test that the vertical velocity is zero (or close to it). As in the above
-		 * code, the vertical figure here was found through experimentation. It's enough to get the guy off the ground.
-		 * As before, impulse is applied to the center of the jumper.
-		 */
 		if (doJump && Math.abs(jumper.getLinearVelocity().y) < 1e-4) {
-			jumper.applyLinearImpulse(new Vector2(0.0f, jumpVelocity), jumper.getWorldCenter());
+			jumper.applyLinearImpulse(new Vector2(0.0f, jumpVelocity), jumper.getWorldCenter(), true);
 		}
 
 		if (constantMove) {
-			if (jumper.getLinearVelocity().x < 5f) jumper.applyForceToCenter(5f - jumper.getLinearVelocity().x, 0);
+			if (jumper.getLinearVelocity().x < moveVelocity) jumper.applyForceToCenter(/*moveVelocity - jumper.getLinearVelocity().x*/1f, 0, true);
 		}
+		if (jumper.getLinearVelocity().x > 1f) camera.zoom = jumper.getLinearVelocity().x;
+	}
 
-		/**
-		 * Have box2d update the positions and velocities (and etc) of all tracked objects. The second and third
-		 * argument specify the number of iterations of velocity and position tests to perform -- higher is more
-		 * accurate but is also slower.
-		 */
-		world.step(Gdx.app.getGraphics().getDeltaTime(), 3, 3);
-
-		Gdx.gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
-		/**
-		 * A nice(?), blue backdrop.
-		 */
-		Gdx.gl.glClearColor(0, 0.5f, 0.9f, 0);
-
-		/**
-		 * The camera is now controlled primarily by the position of the main character, and secondarily by the map
-		 * boundaries.
-		 */
-
-		tiledMapHelper.getCamera().position.x = PIXELS_PER_METER * jumper.getPosition().x;
-		tiledMapHelper.getCamera().position.y = PIXELS_PER_METER * jumper.getPosition().y;
-
-		/**
-		 * Ensure that the camera is only showing the map, nothing outside.
-		 */
-		if (tiledMapHelper.getCamera().position.x < Gdx.graphics.getWidth() / 2) {
-			tiledMapHelper.getCamera().position.x = Gdx.graphics.getWidth() / 2;
-		}
-		if (tiledMapHelper.getCamera().position.x >= tiledMapHelper.getWidth() - Gdx.graphics.getWidth() / 2) {
-			tiledMapHelper.getCamera().position.x = tiledMapHelper.getWidth() - Gdx.graphics.getWidth() / 2;
-		}
-
-		if (tiledMapHelper.getCamera().position.y < Gdx.graphics.getHeight() / 2) {
-			tiledMapHelper.getCamera().position.y = Gdx.graphics.getHeight() / 2;
-		}
-		if (tiledMapHelper.getCamera().position.y >= tiledMapHelper.getHeight() - Gdx.graphics.getHeight() / 2) {
-			tiledMapHelper.getCamera().position.y = tiledMapHelper.getHeight() - Gdx.graphics.getHeight() / 2;
-		}
-
-		if (jumper.getPosition().x * PIXELS_PER_METER > tiledMapHelper.getWidth() - 30) reset();
-
-		tiledMapHelper.getCamera().update();
-		tiledMapHelper.render();
-
-		/**
-		 * Prepare the SpriteBatch for drawing.
-		 */
-		spriteBatch.setProjectionMatrix(tiledMapHelper.getCamera().combined);
-		spriteBatch.begin();
-
-		jumperSprite.setPosition(PIXELS_PER_METER * jumper.getPosition().x - jumperSprite.getWidth() / 2, PIXELS_PER_METER * jumper.getPosition().y
-				- jumperSprite.getHeight() / 2);
-		jumperSprite.draw(spriteBatch);
-
-		print(gravity, jumpVelocity);
-
-		/**
-		 * "Flush" the sprites to screen.
-		 */
-		spriteBatch.end();
-
-		/**
-		 * Draw this last, so we can see the collision boundaries on top of the sprites and map.
-		 */
-		debugRenderer.render(world, tiledMapHelper.getCamera().combined.scale(Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER));
-
-		now = System.currentTimeMillis();
+	private void ensureFps() {
+		long now = System.currentTimeMillis();
 		if (now - lastRender < 30000000) { // 30 ms, ~33FPS
 			try {
 				Thread.sleep(30 - (now - lastRender) / 1000000);
@@ -427,26 +393,63 @@ public class Pidgin implements ApplicationListener {
 		lastRender = now;
 	}
 
+	private void controlCamera() {
+		/**
+		 * The camera is now controlled primarily by the position of the main character, and secondarily by the map
+		 * boundaries.
+		 */
+
+		camera.position.x = PIXELS_PER_METER * jumper.getPosition().x;
+		camera.position.y = PIXELS_PER_METER * jumper.getPosition().y;
+
+		/**
+		 * Ensure that the camera is only showing the map, nothing outside.
+		 */
+		if (camera.position.x < Gdx.graphics.getWidth() / 2) {
+			camera.position.x = Gdx.graphics.getWidth() / 2;
+		}
+		if (camera.position.x >= tiledMapHelper.getWidth() - Gdx.graphics.getWidth() / 2) {
+			camera.position.x = tiledMapHelper.getWidth() - Gdx.graphics.getWidth() / 2;
+		}
+
+		if (camera.position.y < Gdx.graphics.getHeight() / 2) {
+			camera.position.y = Gdx.graphics.getHeight() / 2;
+		}
+		if (camera.position.y >= tiledMapHelper.getHeight() - Gdx.graphics.getHeight() / 2) {
+			camera.position.y = tiledMapHelper.getHeight() - Gdx.graphics.getHeight() / 2;
+		}
+	}
+
 	private void print(float gravity, float jumpVelocity) {
-		font.draw(spriteBatch, "gravitacia: " + -world.getGravity().y, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
-				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2);
+		font.draw(spriteBatch, "(Q) reset", camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2 - 20);
+		font.draw(spriteBatch, "(W/A) naspat", camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2 - 40);
+		font.draw(spriteBatch, "(M) zmena pohybu", camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2 - 60);
+
+		font.draw(spriteBatch, "(E/S) gravitacia: " + -world.getGravity().y, camera.position.x - Gdx.graphics.getWidth() / 2,
+				camera.position.y + Gdx.graphics.getHeight() / 2 - 80);
 		if (world.getGravity().y != gravity) world.setGravity(new Vector2(0, gravity));
-		font.draw(spriteBatch, "jump: " + jumpVelocity, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
-				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 20);
 
-		Vector2 rozmery = new Vector2();
-		((PolygonShape) jumper.getFixtureList().get(0).getShape()).getVertex(2, rozmery);
+		font.draw(spriteBatch, "(D/R) jump: " + jumpVelocity, camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2
+				- 100);
 
-		font.draw(spriteBatch, "vyska vtaka: " + rozmery.y, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
-				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 40);
-		font.draw(spriteBatch, "sirka vtaka: " + rozmery.x, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
-				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 60);
+		font.draw(spriteBatch, "(T/F) vyska vtaka: " + pidginHeight, camera.position.x - Gdx.graphics.getWidth() / 2,
+				camera.position.y + Gdx.graphics.getHeight() / 2 - 120);
+
+		font.draw(spriteBatch, "(Y/G) sirka vtaka: " + pidginWidth, camera.position.x - Gdx.graphics.getWidth() / 2,
+				camera.position.y + Gdx.graphics.getHeight() / 2 - 140);
 
 		float density = jumper.getFixtureList().get(0).getDensity();
-		font.draw(spriteBatch, "objem vtaka: " + density, tiledMapHelper.getCamera().position.x - Gdx.graphics.getWidth() / 2,
-				tiledMapHelper.getCamera().position.y + Gdx.graphics.getHeight() / 2 - 80);
-		if (density != pidginDensity) jumper.getFixtureList().get(0).setDensity(pidginDensity);
+		font.draw(spriteBatch, "(U/H) objem vtaka: " + density, camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight()
+				/ 2 - 160);
+		if (density != pidginDensity) {
+			jumper.getFixtureList().get(0).setDensity(pidginDensity);
+			jumper.resetMassData();
+		}
 
+		font.draw(spriteBatch, "(I/J) max rychlost: " + moveVelocity, camera.position.x - Gdx.graphics.getWidth() / 2,
+				camera.position.y + Gdx.graphics.getHeight() / 2 - 180);
+		font.draw(spriteBatch, "aktualna rychlost: " + jumper.getLinearVelocity().x, camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y
+				+ Gdx.graphics.getHeight() / 2 - 200);
 	}
 
 	private void reset() {

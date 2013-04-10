@@ -37,7 +37,45 @@ public class PidginDesktop {
 
 	public static class IniConfig implements PidginConfig {
 
+		private final HierarchicalINIConfiguration config;
+
 		public IniConfig(HierarchicalINIConfiguration config) {
+			this.config = config;
+		}
+
+		@Override
+		public float getJumpVelocity() {
+			return config.getFloat("pidgin.jump");
+		}
+
+		@Override
+		public float getGravity() {
+			return config.getFloat("main.gravity");
+		}
+
+		@Override
+		public float getSpeed() {
+			return config.getFloat("pidgin.maxspeed");
+		}
+
+		@Override
+		public float getMass() {
+			return config.getFloat("pidgin.mass");
+		}
+
+		@Override
+		public int getPidginHeight() {
+			return config.getInt("pidgin.height");
+		}
+
+		@Override
+		public int getPidginWidth() {
+			return config.getInt("pidgin.width");
+		}
+
+		@Override
+		public String getMap() {
+			return config.getString("main.map");
 		}
 
 	}

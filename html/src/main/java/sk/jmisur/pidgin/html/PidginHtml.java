@@ -24,7 +24,50 @@ public class PidginHtml extends GwtApplication {
 		}
 	}
 
-	public static class GwtConfig implements PidginConfig {}
+	public static class GwtConfig implements PidginConfig {
+
+		@Override
+		public float getJumpVelocity() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public float getGravity() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public float getSpeed() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public float getMass() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public int getPidginHeight() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public int getPidginWidth() {
+			// TODO Auto-generated method stub
+			return 0;
+		}
+
+		@Override
+		public String getMap() {
+			// TODO Auto-generated method stub
+			return null;
+		}
+	}
 
 	@Override
 	public GwtApplicationConfiguration getConfig() {
