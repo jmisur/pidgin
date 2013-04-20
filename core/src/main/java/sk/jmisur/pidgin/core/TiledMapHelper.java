@@ -18,6 +18,8 @@ import java.util.HashMap;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.files.FileHandle;
 import com.badlogic.gdx.maps.tiled.TiledMap;
+import com.badlogic.gdx.maps.tiled.TiledMapTileLayer;
+import com.badlogic.gdx.maps.tiled.TiledMapTileLayer.Cell;
 import com.badlogic.gdx.maps.tiled.TmxMapLoader;
 import com.badlogic.gdx.maps.tiled.renderers.OrthogonalTiledMapRenderer;
 import com.badlogic.gdx.math.Vector2;
@@ -160,21 +162,23 @@ public class TiledMapHelper {
 
 		ArrayList<LineSegment> collisionLineSegments = new ArrayList<LineSegment>();
 
-		//		for (int y = 0; y < getHeightInTiles(); y++) {
-		//			for (int x = 0; x < getWidthInTiles(); x++) {
-		//				Cell cell = ((TiledMapTileLayer) getMap().getLayers().get(0)).getCell((getHeightInTiles() - 1) - y, x);
-		//				if (cell != null) {
-		//					int tileType = cell.getTile().getId();
-		//
-		//					for (int n = 0; n < tileCollisionJoints.get(Integer.valueOf(tileType)).size(); n++) {
-		//						LineSegment lineSeg = tileCollisionJoints.get(Integer.valueOf(tileType)).get(n);
-		//
-		//						addOrExtendCollisionLineSegment(x * getTileWidth() + lineSeg.start().x, y * getTileHeight() - lineSeg.start().y + 32, x
-		//								* getTileWidth() + lineSeg.end().x, y * getTileHeight() - lineSeg.end().y + 32, collisionLineSegments);
-		//					}
-		//				}
-		//			}
-		//		}
+		for (int y = 0; y < getHeightInTiles(); y++) {
+			for (int x = 0; x < getWidthInTiles(); x++) {
+				Cell cell = ((TiledMapTileLayer) getMap().getLayers().get(0)).getCell(x, y);
+				if (cell != null) {
+					int tileType = cell.getTile().getId();
+
+					//					if (tileType == 26) {
+					for (int n = 0; n < tileCollisionJoints.get(Integer.valueOf(tileType)).size(); n++) {
+						LineSegment lineSeg = tileCollisionJoints.get(Integer.valueOf(tileType)).get(n);
+
+						addOrExtendCollisionLineSegment(x * getTileWidth() + lineSeg.start().x, y * getTileHeight() - lineSeg.start().y + 290, x
+								* getTileWidth() + lineSeg.end().x, y * getTileHeight() - lineSeg.end().y + 290, collisionLineSegments);
+					}
+					//					}
+				}
+			}
+		}
 
 		BodyDef groundBodyDef = new BodyDef();
 		groundBodyDef.type = BodyDef.BodyType.StaticBody;
@@ -182,7 +186,7 @@ public class TiledMapHelper {
 		for (LineSegment lineSegment : collisionLineSegments) {
 			EdgeShape environmentShape = new EdgeShape();
 
-			environmentShape.set(lineSegment.start().mul(1 / pixelsPerMeter), lineSegment.end().mul(1 / pixelsPerMeter));
+			environmentShape.set(lineSegment.start().scl(1 / pixelsPerMeter), lineSegment.end().scl(1 / pixelsPerMeter));
 			groundBody.createFixture(environmentShape, 0);
 			environmentShape.dispose();
 		}

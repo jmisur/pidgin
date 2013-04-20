@@ -8,7 +8,6 @@ import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
 
 import sk.jmisur.pidgin.core.Log;
 import sk.jmisur.pidgin.core.Pidgin;
-import sk.jmisur.pidgin.core.PidginConfig;
 
 public class PidginActivity extends AndroidApplication {
 
@@ -21,7 +20,7 @@ public class PidginActivity extends AndroidApplication {
 		DisplayMetrics displayMetrics = new DisplayMetrics();
 		displayMetrics = getResources().getDisplayMetrics();
 
-		initialize(new Pidgin(displayMetrics.heightPixels, displayMetrics.widthPixels, new AndroidLog(), new AndroidConfig()), config);
+		initialize(new Pidgin(new AndroidLog()), config);
 	}
 
 	public static class AndroidLog implements Log {
@@ -32,41 +31,4 @@ public class PidginActivity extends AndroidApplication {
 		}
 	}
 
-	public static class AndroidConfig implements PidginConfig {
-
-		@Override
-		public float getJumpVelocity() {
-			return 15;
-		}
-
-		@Override
-		public float getGravity() {
-			return 30;
-		}
-
-		@Override
-		public float getSpeed() {
-			return 5;
-		}
-
-		@Override
-		public float getMass() {
-			return 0.1f;
-		}
-
-		@Override
-		public int getPidginHeight() {
-			return 200;
-		}
-
-		@Override
-		public int getPidginWidth() {
-			return 150;
-		}
-
-		@Override
-		public String getMap() {
-			return "ulica";
-		}
-	}
 }

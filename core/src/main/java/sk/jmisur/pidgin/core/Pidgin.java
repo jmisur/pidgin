@@ -12,6 +12,7 @@ package sk.jmisur.pidgin.core;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
+import com.badlogic.gdx.graphics.FPSLogger;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
@@ -80,7 +81,7 @@ public class Pidgin implements ApplicationListener {
 	 * accelerations not feeling quite right. Common practice is to use a constant to convert pixels to and from
 	 * "meters".
 	 */
-	public static final float PIXELS_PER_METER = 60.0f;
+	public static float PIXELS_PER_METER;
 
 	/**
 	 * The screen's width and height. This may not match that computed by libgdx's gdx.graphics.getWidth() / getHeight()
@@ -92,21 +93,20 @@ public class Pidgin implements ApplicationListener {
 
 	private final Log log;
 
-	private final PidginConfig config;
-
 	private BitmapFont font;
 
 	private float jumpVelocity;
 
 	private float gravity;
 
-	private int pidginWidth;
+	private float pidginWidth;
 
-	private int pidginHeight;
+	private float pidginHeight;
 
 	private float pidginDensity;
 
 	private boolean doJump;
+	FPSLogger fpsLogger = new FPSLogger();
 
 	private boolean doCrouch;
 
@@ -116,23 +116,16 @@ public class Pidgin implements ApplicationListener {
 
 	private float moveVelocity;
 
-	public Pidgin(Log log, PidginConfig config) {
+	private final String map;
+
+	public Pidgin(Log log) {
 		super();
 		this.log = log;
-		this.config = config;
+		this.map = "ulica";
 
 		// Defer until create() when Gdx is initialized.
 		screenWidth = -1;
 		screenHeight = -1;
-	}
-
-	public Pidgin(int width, int height, Log log, PidginConfig config) {
-		super();
-
-		screenWidth = width;
-		screenHeight = height;
-		this.log = log;
-		this.config = config;
 	}
 
 	private OrthographicCamera camera;
@@ -142,13 +135,15 @@ public class Pidgin implements ApplicationListener {
 		screenWidth = Gdx.graphics.getWidth();
 		screenHeight = Gdx.graphics.getHeight();
 
+		PIXELS_PER_METER = 60f;
+
 		camera = new OrthographicCamera(screenWidth, screenHeight);
 		camera.position.set(0, 0, 0);
-		//		camera.zoom = 0.1f;
+		camera.zoom = 1920f / screenWidth;
 
 		tiledMapHelper = new TiledMapHelper();
 		tiledMapHelper.setPackerDirectory("data/maps/");
-		tiledMapHelper.loadMap("data/maps/" + config.getMap() + ".tmx", 1f);
+		tiledMapHelper.loadMap("data/maps/" + map + ".tmx", 1f);
 		tiledMapHelper.getRenderer().setView(camera);
 
 		overallTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin.png"));
@@ -157,71 +152,48 @@ public class Pidgin implements ApplicationListener {
 		crouchTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin-crouch.png"));
 		crouchTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 
-		pidginWidth = config.getPidginWidth();
-		pidginHeight = config.getPidginHeight();
+		pidginWidth = 3.2f;
+		pidginHeight = 4.8f;
 
-		jumperSprite = normalSprite = new Sprite(overallTexture, 0, 0, pidginWidth, pidginHeight);
-		crouchSprite = new Sprite(crouchTexture, 0, 0, pidginWidth, pidginHeight / 2);
+		jumperSprite = normalSprite = new Sprite(overallTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginHeight * PIXELS_PER_METER));
+		crouchSprite = new Sprite(crouchTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginWidth / 2 * PIXELS_PER_METER));
 
 		spriteBatch = new SpriteBatch();
 
-		gravity = -config.getGravity();
+		gravity = -30f;
 		world = new World(new Vector2(0.0f, gravity), true);
 
 		BodyDef jumperBodyDef = new BodyDef();
 		jumperBodyDef.type = BodyDef.BodyType.DynamicBody;
 		jumperBodyDef.position.set(1.0f, 30.0f);
-		//						jumperBodyDef.position.set((tiledMapHelper.getWidth() - 200) / PIXELS_PER_METER - 1f, (tiledMapHelper.getHeight() - 64) / PIXELS_PER_METER);
 
 		jumper = world.createBody(jumperBodyDef);
 
 		PolygonShape jumperShape = new PolygonShape();
-		jumperShape.setAsBox(pidginWidth / 2 / PIXELS_PER_METER, pidginHeight / 2 / PIXELS_PER_METER);
+		jumperShape.setAsBox(pidginWidth / 2, pidginHeight / 2);
 
 		jumper.setFixedRotation(true);
 
 		FixtureDef jumperFixtureDef = new FixtureDef();
 		jumperFixtureDef.shape = jumperShape;
-		pidginDensity = config.getMass();
-		jumperFixtureDef.density = pidginDensity;
-		jumperFixtureDef.friction = 0f;
-		jumperFixtureDef.restitution = 0f;
+		jumperFixtureDef.density = 0.1f;
+		jumperFixtureDef.friction = 0;
+		jumperFixtureDef.restitution = 0;
 
 		jumper.createFixture(jumperFixtureDef);
 		jumperShape.dispose();
 
-		//		createBall();
-
-		tiledMapHelper.loadCollisions("data/images/tiles/" + config.getMap() + ".collision", world, PIXELS_PER_METER);
+		tiledMapHelper.loadCollisions("data/images/tiles/" + map + ".collision", world, PIXELS_PER_METER);
 
 		debugRenderer = new Box2DDebugRenderer();
 
-		lastRender = System.currentTimeMillis();
-
 		font = new BitmapFont();
 
-		jumpVelocity = config.getJumpVelocity();
-		moveVelocity = config.getSpeed();
-	}
+		jumpVelocity = 25;
+		moveVelocity = 30f;
 
-	//	private void createBall() {
-	//		BodyDef ballBodyDef = new BodyDef();
-	//		ballBodyDef.type = BodyDef.BodyType.DynamicBody;
-	//		ballBodyDef.position.set((tiledMapHelper.getWidth() - 320) / PIXELS_PER_METER, (tiledMapHelper.getHeight() - 64) / PIXELS_PER_METER);
-	//		Body ball = world.createBody(ballBodyDef);
-	//
-	//		CircleShape ballShape = new CircleShape();
-	//		ballShape.setRadius(0.2f);
-	//
-	//		FixtureDef ballFixtureDef = new FixtureDef();
-	//		ballFixtureDef.shape = ballShape;
-	//		ballFixtureDef.density = 0.1f;
-	//		ballFixtureDef.friction = 0.1f;
-	//		ballFixtureDef.restitution = 0.8f;
-	//
-	//		ball.createFixture(ballFixtureDef);
-	//		ballShape.dispose();
-	//	}
+		lastRender = System.currentTimeMillis();
+	}
 
 	@Override
 	public void resume() {
@@ -244,8 +216,6 @@ public class Pidgin implements ApplicationListener {
 
 		controlCamera();
 
-		//		if (jumper.getPosition().x * PIXELS_PER_METER > tiledMapHelper.getWidth() - 30) reset();
-
 		camera.update();
 		tiledMapHelper.getRenderer().setView(camera);
 		tiledMapHelper.getRenderer().render();
@@ -257,12 +227,10 @@ public class Pidgin implements ApplicationListener {
 				- jumperSprite.getHeight() / 2);
 		jumperSprite.draw(spriteBatch);
 
-		print(gravity, jumpVelocity);
-
 		spriteBatch.end();
 		debugRenderer.render(world, camera.combined.scale(Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER));
 
-		ensureFps();
+		fpsLogger.log();
 	}
 
 	private void getInput() {
@@ -276,7 +244,7 @@ public class Pidgin implements ApplicationListener {
 			doJump = true;
 		} else {
 			for (int i = 0; i < 2; i++) {
-				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) > Gdx.graphics.getWidth() * 0.8f) {
+				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) > screenWidth * 0.8f) {
 					doJump = true;
 				}
 			}
@@ -285,7 +253,7 @@ public class Pidgin implements ApplicationListener {
 			doCrouch = true;
 		} else {
 			for (int i = 0; i < 2; i++) {
-				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) < Gdx.graphics.getHeight() * 0.2f) {
+				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) < screenHeight * 0.2f) {
 					doCrouch = true;
 				}
 			}
@@ -294,56 +262,14 @@ public class Pidgin implements ApplicationListener {
 			reset();
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-			backoff(1f, 0f);
+			backoff(2f, 0f);
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-			backoff(0f, -0.4f);
+			backoff(0f, -2f);
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.M)) {
 			constantMove = !constantMove;
 			jumper.setLinearVelocity(0f, 0f);
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.E)) {
-			gravity = gravity - 0.1f;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.S)) {
-			gravity = gravity + 0.1f;
-			if (gravity > 0) gravity = 0;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.D)) {
-			jumpVelocity = jumpVelocity - 0.01f;
-			if (jumpVelocity < 0) jumpVelocity = 0;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.R)) {
-			jumpVelocity = jumpVelocity + 0.01f;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.F)) {
-			pidginWidth = pidginWidth - 1;
-			if (pidginWidth < 0) pidginWidth = 0;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.T)) {
-			pidginWidth = pidginWidth + 1;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.G)) {
-			pidginHeight = pidginHeight - 1;
-			if (pidginHeight < 0) pidginHeight = 0;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.Y)) {
-			pidginHeight = pidginHeight + 1;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.H)) {
-			pidginDensity = pidginDensity - 0.001f;
-			if (pidginDensity < 0) pidginDensity = 0;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.U)) {
-			pidginDensity = pidginDensity + 0.001f;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.J)) {
-			moveVelocity = moveVelocity - 0.01f;
-			if (moveVelocity < 0) moveVelocity = 0;
-		}
-		if (Gdx.input.isKeyPressed(Input.Keys.I)) {
-			moveVelocity = moveVelocity + 0.01f;
 		}
 
 	}
@@ -364,10 +290,12 @@ public class Pidgin implements ApplicationListener {
 		}
 
 		if (doCrouch) {
-			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth / 2 / PIXELS_PER_METER, pidginHeight / 2 / 2 / PIXELS_PER_METER);
+			jumper.getFixtureList().get(0).setDensity(0.25f);
+			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth / 2, pidginHeight / 4);
 			jumperSprite = crouchSprite;
 		} else {
-			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth / 2 / PIXELS_PER_METER, pidginHeight / 2 / PIXELS_PER_METER);
+			jumper.getFixtureList().get(0).setDensity(0.1f);
+			((PolygonShape) jumper.getFixtureList().get(0).getShape()).setAsBox(pidginWidth / 2, pidginHeight / 2);
 			jumperSprite = normalSprite;
 		}
 		jumper.resetMassData();
@@ -377,20 +305,9 @@ public class Pidgin implements ApplicationListener {
 		}
 
 		if (constantMove) {
-			if (jumper.getLinearVelocity().x < moveVelocity) jumper.applyForceToCenter(/*moveVelocity - jumper.getLinearVelocity().x*/1f, 0, true);
+			if (jumper.getLinearVelocity().x < moveVelocity) jumper.applyForceToCenter(moveVelocity, 0, true);
 		}
-		if (jumper.getLinearVelocity().x > 1f) camera.zoom = jumper.getLinearVelocity().x;
-	}
-
-	private void ensureFps() {
-		long now = System.currentTimeMillis();
-		if (now - lastRender < 30000000) { // 30 ms, ~33FPS
-			try {
-				Thread.sleep(30 - (now - lastRender) / 1000000);
-			} catch (InterruptedException e) {}
-		}
-
-		lastRender = now;
+		//		if (jumper.getLinearVelocity().x > 1f) camera.zoom = jumper.getLinearVelocity().x;
 	}
 
 	private void controlCamera() {
@@ -398,58 +315,25 @@ public class Pidgin implements ApplicationListener {
 		 * The camera is now controlled primarily by the position of the main character, and secondarily by the map
 		 * boundaries.
 		 */
-
-		camera.position.x = PIXELS_PER_METER * jumper.getPosition().x;
+		camera.position.x = PIXELS_PER_METER * (jumper.getPosition().x - pidginWidth * 1.5f) + screenWidth / 2 * camera.zoom;
 		camera.position.y = PIXELS_PER_METER * jumper.getPosition().y;
 
 		/**
 		 * Ensure that the camera is only showing the map, nothing outside.
 		 */
-		if (camera.position.x < Gdx.graphics.getWidth() / 2) {
-			camera.position.x = Gdx.graphics.getWidth() / 2;
+		if (camera.position.x < screenWidth / 2 * camera.zoom) {
+			camera.position.x = screenWidth / 2 * camera.zoom;
 		}
-		if (camera.position.x >= tiledMapHelper.getWidth() - Gdx.graphics.getWidth() / 2) {
-			camera.position.x = tiledMapHelper.getWidth() - Gdx.graphics.getWidth() / 2;
-		}
-
-		if (camera.position.y < Gdx.graphics.getHeight() / 2) {
-			camera.position.y = Gdx.graphics.getHeight() / 2;
-		}
-		if (camera.position.y >= tiledMapHelper.getHeight() - Gdx.graphics.getHeight() / 2) {
-			camera.position.y = tiledMapHelper.getHeight() - Gdx.graphics.getHeight() / 2;
-		}
-	}
-
-	private void print(float gravity, float jumpVelocity) {
-		font.draw(spriteBatch, "(Q) reset", camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2 - 20);
-		font.draw(spriteBatch, "(W/A) naspat", camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2 - 40);
-		font.draw(spriteBatch, "(M) zmena pohybu", camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2 - 60);
-
-		font.draw(spriteBatch, "(E/S) gravitacia: " + -world.getGravity().y, camera.position.x - Gdx.graphics.getWidth() / 2,
-				camera.position.y + Gdx.graphics.getHeight() / 2 - 80);
-		if (world.getGravity().y != gravity) world.setGravity(new Vector2(0, gravity));
-
-		font.draw(spriteBatch, "(D/R) jump: " + jumpVelocity, camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight() / 2
-				- 100);
-
-		font.draw(spriteBatch, "(T/F) vyska vtaka: " + pidginHeight, camera.position.x - Gdx.graphics.getWidth() / 2,
-				camera.position.y + Gdx.graphics.getHeight() / 2 - 120);
-
-		font.draw(spriteBatch, "(Y/G) sirka vtaka: " + pidginWidth, camera.position.x - Gdx.graphics.getWidth() / 2,
-				camera.position.y + Gdx.graphics.getHeight() / 2 - 140);
-
-		float density = jumper.getFixtureList().get(0).getDensity();
-		font.draw(spriteBatch, "(U/H) objem vtaka: " + density, camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y + Gdx.graphics.getHeight()
-				/ 2 - 160);
-		if (density != pidginDensity) {
-			jumper.getFixtureList().get(0).setDensity(pidginDensity);
-			jumper.resetMassData();
+		if (camera.position.x >= tiledMapHelper.getWidth() - screenWidth / 2 * camera.zoom) {
+			camera.position.x = tiledMapHelper.getWidth() - screenWidth / 2 * camera.zoom;
 		}
 
-		font.draw(spriteBatch, "(I/J) max rychlost: " + moveVelocity, camera.position.x - Gdx.graphics.getWidth() / 2,
-				camera.position.y + Gdx.graphics.getHeight() / 2 - 180);
-		font.draw(spriteBatch, "aktualna rychlost: " + jumper.getLinearVelocity().x, camera.position.x - Gdx.graphics.getWidth() / 2, camera.position.y
-				+ Gdx.graphics.getHeight() / 2 - 200);
+		if (camera.position.y < screenHeight / 2 * camera.zoom) {
+			camera.position.y = screenHeight / 2 * camera.zoom;
+		}
+		if (camera.position.y >= tiledMapHelper.getHeight() - screenHeight / 2 * camera.zoom) {
+			camera.position.y = tiledMapHelper.getHeight() - screenHeight / 2 * camera.zoom;
+		}
 	}
 
 	private void reset() {
