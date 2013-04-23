@@ -122,6 +122,8 @@ public class Pidgin implements ApplicationListener {
 
 	private final float scale = 2f;
 
+	private float defaultZoom;
+
 	@Override
 	public void create() {
 		screenWidth = Gdx.graphics.getWidth();
@@ -131,8 +133,8 @@ public class Pidgin implements ApplicationListener {
 
 		camera = new OrthographicCamera(screenWidth, screenHeight);
 		camera.position.set(0, 0, 0);
-		camera.zoom = 1920f / screenWidth;
-
+		defaultZoom = 1920f / screenWidth;
+		camera.zoom = defaultZoom;
 		tiledMapHelper = new TiledMapHelper();
 		tiledMapHelper.setPackerDirectory("data/maps/");
 		tiledMapHelper.loadMap("data/maps/" + map + ".tmx", scale);
@@ -298,7 +300,8 @@ public class Pidgin implements ApplicationListener {
 		if (constantMove) {
 			if (jumper.getLinearVelocity().x < moveVelocity) jumper.applyForceToCenter(moveVelocity, 0, true);
 		}
-		//		if (jumper.getLinearVelocity().x > 1f) camera.zoom = jumper.getLinearVelocity().x;
+		//		if (jumper.getLinearVelocity().x > 1f) camera.zoom = defaultZoom + jumper.getLinearVelocity().x / 10;
+		//		else camera.zoom = defaultZoom;
 	}
 
 	private void controlCamera() {
