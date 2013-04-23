@@ -1,7 +1,6 @@
 package sk.jmisur.pidgin.android;
 
 import android.os.Bundle;
-import android.util.DisplayMetrics;
 
 import com.badlogic.gdx.backends.android.AndroidApplication;
 import com.badlogic.gdx.backends.android.AndroidApplicationConfiguration;
@@ -16,9 +15,6 @@ public class PidginActivity extends AndroidApplication {
 		super.onCreate(savedInstanceState);
 		AndroidApplicationConfiguration config = new AndroidApplicationConfiguration();
 		config.useGL20 = false;
-
-		DisplayMetrics displayMetrics = new DisplayMetrics();
-		displayMetrics = getResources().getDisplayMetrics();
 
 		initialize(new Pidgin(new AndroidLog()), config);
 	}

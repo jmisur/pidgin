@@ -118,6 +118,10 @@ public class Pidgin implements ApplicationListener {
 
 	private OrthographicCamera camera;
 
+	private float startHeight;
+
+	private final float scale = 2f;
+
 	@Override
 	public void create() {
 		screenWidth = Gdx.graphics.getWidth();
@@ -131,7 +135,7 @@ public class Pidgin implements ApplicationListener {
 
 		tiledMapHelper = new TiledMapHelper();
 		tiledMapHelper.setPackerDirectory("data/maps/");
-		tiledMapHelper.loadMap("data/maps/" + map + ".tmx", 1f);
+		tiledMapHelper.loadMap("data/maps/" + map + ".tmx", scale);
 		tiledMapHelper.getRenderer().setView(camera);
 
 		overallTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin.png"));
@@ -153,7 +157,8 @@ public class Pidgin implements ApplicationListener {
 
 		BodyDef jumperBodyDef = new BodyDef();
 		jumperBodyDef.type = BodyDef.BodyType.DynamicBody;
-		jumperBodyDef.position.set(1.0f, 30.0f);
+		startHeight = 30.0f * scale;
+		jumperBodyDef.position.set(1.0f, startHeight);
 
 		jumper = world.createBody(jumperBodyDef);
 
@@ -171,7 +176,7 @@ public class Pidgin implements ApplicationListener {
 		jumper.createFixture(jumperFixtureDef);
 		jumperShape.dispose();
 
-		tiledMapHelper.loadCollisions("data/images/tiles/" + map + ".collision", world, PIXELS_PER_METER);
+		tiledMapHelper.loadCollisions("data/images/tiles/" + map + ".collision", world, PIXELS_PER_METER / scale);
 
 		debugRenderer = new Box2DDebugRenderer();
 
@@ -207,8 +212,8 @@ public class Pidgin implements ApplicationListener {
 		spriteBatch.setProjectionMatrix(camera.combined);
 		spriteBatch.begin();
 
-		if (jumper.getPosition().x * PIXELS_PER_METER > tiledMapHelper.getWidth() - jumperSprite.getWidth()) {
-			jumper.setTransform(1.0f, 30.0f, 0f);
+		if (jumper.getPosition().x * PIXELS_PER_METER > tiledMapHelper.getWidth() * scale - jumperSprite.getWidth()) {
+			jumper.setTransform(1.0f, startHeight, 0f);
 		}
 
 		jumperSprite.setPosition(PIXELS_PER_METER * jumper.getPosition().x - jumperSprite.getWidth() / 2, PIXELS_PER_METER * jumper.getPosition().y
@@ -310,20 +315,20 @@ public class Pidgin implements ApplicationListener {
 		if (camera.position.x < screenWidth / 2 * camera.zoom) {
 			camera.position.x = screenWidth / 2 * camera.zoom;
 		}
-		if (camera.position.x >= tiledMapHelper.getWidth() - screenWidth / 2 * camera.zoom) {
-			camera.position.x = tiledMapHelper.getWidth() - screenWidth / 2 * camera.zoom;
+		if (camera.position.x >= tiledMapHelper.getWidth() * scale - screenWidth / 2 * camera.zoom) {
+			camera.position.x = tiledMapHelper.getWidth() * scale - screenWidth / 2 * camera.zoom;
 		}
 
 		if (camera.position.y < screenHeight / 2 * camera.zoom) {
 			camera.position.y = screenHeight / 2 * camera.zoom;
 		}
-		if (camera.position.y >= tiledMapHelper.getHeight() - screenHeight / 2 * camera.zoom) {
-			camera.position.y = tiledMapHelper.getHeight() - screenHeight / 2 * camera.zoom;
+		if (camera.position.y >= tiledMapHelper.getHeight() * scale - screenHeight / 2 * camera.zoom) {
+			camera.position.y = tiledMapHelper.getHeight() * scale - screenHeight / 2 * camera.zoom;
 		}
 	}
 
 	private void reset() {
-		jumper.setTransform(1f, 5f, 0);
+		jumper.setTransform(1f, startHeight, 0);
 	}
 
 	private void backoff(float x, float y) {
