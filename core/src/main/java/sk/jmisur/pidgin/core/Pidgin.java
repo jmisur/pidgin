@@ -12,12 +12,10 @@ package sk.jmisur.pidgin.core;
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.FPSLogger;
 import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.Texture.TextureFilter;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.math.Vector2;
@@ -29,11 +27,6 @@ import com.badlogic.gdx.physics.box2d.PolygonShape;
 import com.badlogic.gdx.physics.box2d.World;
 
 public class Pidgin implements ApplicationListener {
-
-	/**
-	 * The time the last frame was rendered, used for throttling framerate
-	 */
-	private long lastRender;
 
 	private TiledMapHelper tiledMapHelper;
 
@@ -93,8 +86,6 @@ public class Pidgin implements ApplicationListener {
 
 	private final Log log;
 
-	private BitmapFont font;
-
 	private float jumpVelocity;
 
 	private float gravity;
@@ -103,10 +94,7 @@ public class Pidgin implements ApplicationListener {
 
 	private float pidginHeight;
 
-	private float pidginDensity;
-
 	private boolean doJump;
-	FPSLogger fpsLogger = new FPSLogger();
 
 	private boolean doCrouch;
 
@@ -152,11 +140,11 @@ public class Pidgin implements ApplicationListener {
 		crouchTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin-crouch.png"));
 		crouchTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 
-		pidginWidth = 3.2f;
-		pidginHeight = 4.8f;
+		pidginWidth = 3.2f; // 192
+		pidginHeight = 4.8f; // 288
 
 		jumperSprite = normalSprite = new Sprite(overallTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginHeight * PIXELS_PER_METER));
-		crouchSprite = new Sprite(crouchTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginWidth / 2 * PIXELS_PER_METER));
+		crouchSprite = new Sprite(crouchTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginHeight / 2 * PIXELS_PER_METER));
 
 		spriteBatch = new SpriteBatch();
 
@@ -187,12 +175,8 @@ public class Pidgin implements ApplicationListener {
 
 		debugRenderer = new Box2DDebugRenderer();
 
-		font = new BitmapFont();
-
 		jumpVelocity = 25;
 		moveVelocity = 30f;
-
-		lastRender = System.currentTimeMillis();
 	}
 
 	@Override
@@ -223,14 +207,16 @@ public class Pidgin implements ApplicationListener {
 		spriteBatch.setProjectionMatrix(camera.combined);
 		spriteBatch.begin();
 
+		if (jumper.getPosition().x * PIXELS_PER_METER > tiledMapHelper.getWidth() - jumperSprite.getWidth()) {
+			jumper.setTransform(1.0f, 30.0f, 0f);
+		}
+
 		jumperSprite.setPosition(PIXELS_PER_METER * jumper.getPosition().x - jumperSprite.getWidth() / 2, PIXELS_PER_METER * jumper.getPosition().y
 				- jumperSprite.getHeight() / 2);
 		jumperSprite.draw(spriteBatch);
 
 		spriteBatch.end();
 		debugRenderer.render(world, camera.combined.scale(Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER, Pidgin.PIXELS_PER_METER));
-
-		fpsLogger.log();
 	}
 
 	private void getInput() {

@@ -168,14 +168,12 @@ public class TiledMapHelper {
 				if (cell != null) {
 					int tileType = cell.getTile().getId();
 
-					//					if (tileType == 26) {
 					for (int n = 0; n < tileCollisionJoints.get(Integer.valueOf(tileType)).size(); n++) {
 						LineSegment lineSeg = tileCollisionJoints.get(Integer.valueOf(tileType)).get(n);
 
-						addOrExtendCollisionLineSegment(x * getTileWidth() + lineSeg.start().x, y * getTileHeight() - lineSeg.start().y + 290, x
-								* getTileWidth() + lineSeg.end().x, y * getTileHeight() - lineSeg.end().y + 290, collisionLineSegments);
+						addOrExtendCollisionLineSegment(x * getTileWidth() + lineSeg.start().x, y * getTileHeight() - lineSeg.start().y + getTileHeight(), x
+								* getTileWidth() + lineSeg.end().x, y * getTileHeight() - lineSeg.end().y + getTileHeight(), collisionLineSegments);
 					}
-					//					}
 				}
 			}
 		}
