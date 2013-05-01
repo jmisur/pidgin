@@ -28,6 +28,9 @@ import com.badlogic.gdx.physics.box2d.World;
 
 public class Pidgin implements ApplicationListener {
 
+	private static final float MAX_MOVE_VELOCITY = 30f;
+	private static final float MIN_MOVE_VELOCITY = 20f;
+
 	private TiledMapHelper tiledMapHelper;
 
 	/**
@@ -123,6 +126,8 @@ public class Pidgin implements ApplicationListener {
 	private final float scale = 2f;
 
 	private float defaultZoom;
+	private long now;
+	private long before;
 
 	@Override
 	public void create() {
@@ -146,8 +151,8 @@ public class Pidgin implements ApplicationListener {
 		crouchTexture = new Texture(Gdx.files.internal("data/images/characters/pidgin/pidgin-crouch.png"));
 		crouchTexture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
 
-		pidginWidth = 3.2f; // 192
-		pidginHeight = 4.8f; // 288
+		pidginWidth = 2.88f;
+		pidginHeight = 4.32f;
 
 		jumperSprite = normalSprite = new Sprite(overallTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginHeight * PIXELS_PER_METER));
 		crouchSprite = new Sprite(crouchTexture, 0, 0, (int) (pidginWidth * PIXELS_PER_METER), (int) (pidginHeight / 2 * PIXELS_PER_METER));
@@ -183,7 +188,8 @@ public class Pidgin implements ApplicationListener {
 		debugRenderer = new Box2DDebugRenderer();
 
 		jumpVelocity = 25;
-		moveVelocity = 30f;
+		moveVelocity = MIN_MOVE_VELOCITY;
+		now = System.currentTimeMillis();
 	}
 
 	@Override
@@ -246,22 +252,34 @@ public class Pidgin implements ApplicationListener {
 			doCrouch = true;
 		} else {
 			for (int i = 0; i < 2; i++) {
-				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) < screenHeight * 0.2f) {
+				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) < screenWidth * 0.2f && Gdx.input.getY(i) > screenHeight * 0.4) {
 					doCrouch = true;
 				}
 			}
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.Q)) {
 			reset();
+		} else {
+			for (int i = 0; i < 2; i++) {
+				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) < screenWidth * 0.2f && Gdx.input.getY(i) < screenHeight * 0.2) {
+					reset();
+				}
+				if (Gdx.input.isTouched(i) && Gdx.input.getX(i) < screenWidth * 0.2f && Gdx.input.getY(i) > screenHeight * 0.2
+						&& Gdx.input.getY(i) < screenHeight * 0.4) {
+					reset2();
+				}
+			}
 		}
+
 		if (Gdx.input.isKeyPressed(Input.Keys.A)) {
-			backoff(2f, 0f);
+			backoff(5f, 0f);
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.W)) {
-			backoff(0f, -2f);
+			backoff(0f, -5f);
 		}
 		if (Gdx.input.isKeyPressed(Input.Keys.M)) {
 			constantMove = !constantMove;
+			moveVelocity = MIN_MOVE_VELOCITY;
 			jumper.setLinearVelocity(0f, 0f);
 		}
 
@@ -299,9 +317,20 @@ public class Pidgin implements ApplicationListener {
 
 		if (constantMove) {
 			if (jumper.getLinearVelocity().x < moveVelocity) jumper.applyForceToCenter(moveVelocity, 0, true);
+
+			if (moveVelocity <= MAX_MOVE_VELOCITY) {
+				now = System.currentTimeMillis();
+				if (now - before > 100) {
+					moveVelocity += 0.1f;
+					//					System.out.println(moveVelocity + " | " + jumper.getLinearVelocity().x);
+
+					before = now;
+				}
+			}
 		}
-		//		if (jumper.getLinearVelocity().x > 1f) camera.zoom = defaultZoom + jumper.getLinearVelocity().x / 10;
-		//		else camera.zoom = defaultZoom;
+
+		if (moveVelocity > MIN_MOVE_VELOCITY) camera.zoom = defaultZoom + (moveVelocity - MIN_MOVE_VELOCITY) / 10f;
+		else camera.zoom = defaultZoom;
 	}
 
 	private void controlCamera() {
@@ -332,13 +361,19 @@ public class Pidgin implements ApplicationListener {
 
 	private void reset() {
 		jumper.setTransform(1f, startHeight, 0);
+		moveVelocity = MIN_MOVE_VELOCITY;
+	}
+
+	private void reset2() {
+		jumper.setTransform(1f, startHeight / 3, 0);
+		moveVelocity = MIN_MOVE_VELOCITY;
 	}
 
 	private void backoff(float x, float y) {
 		float newX = jumper.getPosition().x - x;
-		if (newX * PIXELS_PER_METER < 1f) newX = 1f;
+		if (newX < 0) newX = 0;
 		float newY = jumper.getPosition().y - y;
-		if (newY * PIXELS_PER_METER > tiledMapHelper.getHeight()) newY = (tiledMapHelper.getHeight() - 32) / PIXELS_PER_METER;
+		if (newY * PIXELS_PER_METER > tiledMapHelper.getHeight() * scale) newY = tiledMapHelper.getHeight() * scale / PIXELS_PER_METER;
 		jumper.setTransform(newX, newY, 0);
 	}
 
