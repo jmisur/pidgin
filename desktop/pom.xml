@@ -44,7 +44,6 @@
 				<artifactId>launch4j-plugin</artifactId>
 				<version>1.5.0.0</version>
 				<executions>
-
 					<!-- GUI exe -->
 					<execution>
 						<id>l4j-gui</id>
@@ -55,7 +54,7 @@
 						<configuration>
 							<headerType>gui</headerType>
 							<outfile>target/pidgin.exe</outfile>
-							<jar>target/${artifactId}-${version}-shaded.jar</jar>
+							<jar>target/${project.artifactId}-${project.version}-shaded.jar</jar>
 							<errTitle>App Err</errTitle>
 							<classPath>
 								<mainClass>${mainClass}</mainClass>
